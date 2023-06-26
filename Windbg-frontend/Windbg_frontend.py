@@ -1,9 +1,9 @@
 """ Made by Cpt-Dingus
-Version 0.3.1 - 26/06/2023 """
+Version 1.0 - 26/06/2023 """
 
 import os
-import sys
 import subprocess
+import sys
 import tempfile
 import threading
 import zipfile
@@ -23,8 +23,6 @@ from tkinter import (
     filedialog,
 )
 from tkinter.ttk import Button, Checkbutton, Frame, Notebook, Style
-
-# TODO: Make this program callable with a file already
 
 
 def push_message(window: Text, message: str):
@@ -213,6 +211,7 @@ def load_command():
 
     push_message(main_info, "Getting files...\n")
 
+    # This updates the file dir globally
     get_files(file_path)
     if not files:
         return
@@ -234,12 +233,15 @@ def load_command():
         tab = globals()[f"{prefix}"]
         tabControl.add(tab, text=f"{file}")
 
-        # Creates the main debugging window
+        # Theme handling
         bg_theme = "#2d2d2d"
         fg_theme = "white"
+        # Light mode handling
         if jim_mode.get():
             bg_theme = "white"
             fg_theme = "black"
+
+        # Creates the main debugging window
         globals()[f"{prefix}_window"] = Text(
             tab, height=20, width=70, background=bg_theme, foreground=fg_theme
         )
@@ -264,36 +266,36 @@ def load_command():
 
         # Run the command and redirect its input and output
         command = f'{CDB_PATH} -z "{files[file]}"'
-        with subprocess.Popen(
+        process = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-        ) as process:
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
 
-            # Creates an output queue so the thread doesn't lock
-            globals()[f"{prefix}_out"] = Queue()
-            out_queue = globals()[f"{prefix}_out"]
-            globals()[f"{prefix}_out_thread"] = threading.Thread(
-                target=enqueue_output, args=(process.stdout, out_queue)
-            )
-            globals()[f"{prefix}_out_thread"].start()
+        # Creates an output queue so the thread doesn't lock
+        globals()[f"{prefix}_out"] = Queue()
+        out_queue = globals()[f"{prefix}_out"]
+        globals()[f"{prefix}_out_thread"] = threading.Thread(
+            target=enqueue_output, args=(process.stdout, out_queue)
+        )
+        globals()[f"{prefix}_out_thread"].start()
 
-            # Creates input queue so the thread can accept more than one line of input
-            globals()[f"{prefix}_in"] = Queue()
+        # Creates input queue so the thread can accept more than one line of input
+        globals()[f"{prefix}_in"] = Queue()
 
-            # Create a thread to execute the command loop
-            globals()[f"{prefix}_thread"] = threading.Thread(
-                target=execute_command, args=(process, out_queue, prefix)
-            )
-            globals()[f"{prefix}_thread"].start()
+        # Create a thread to execute the command loop
+        globals()[f"{prefix}_thread"] = threading.Thread(
+            target=execute_command, args=(process, out_queue, prefix)
+        )
+        globals()[f"{prefix}_thread"].start()
 
-        push_message(main_info, "All cdb threads successfully started!\n")
-        load_button.configure(state=DISABLED)
+    push_message(main_info, "All cdb threads successfully started!\n")
+    load_button.configure(state=DISABLED)
 
-        # TODO: Make this only happen once cdb is finished starting
-        run_default_button.configure(state=NORMAL)
-
+    # TODO: Make this only happen once cdb is finished starting
+    run_default_button.configure(state=NORMAL)
 
     def run_command(_, prefix: str):
         """
@@ -348,8 +350,6 @@ def select_file(sel_type: str):
         file_path_box.configure(state=NORMAL)
         file_path_box.delete(1.0, END)
         file_path_box.insert(END, file_path)
-        # Makes sure you can't modify it willy nilly (TODO: make it modifiable willy nilly)
-        file_path_box.configure(state=DISABLED)
 
         # Makes you able to load the files once a selection has been made
         load_button.configure(state=NORMAL)
@@ -493,7 +493,9 @@ select_button.pack(side=LEFT, padx=5)
 
 # Creates the `Select Folder` button
 folder_select_button = Button(
-    file_buttons_frame, text="Select Folder", command=lambda: select_file(sel_type="folder")
+    file_buttons_frame,
+    text="Select Folder",
+    command=lambda: select_file(sel_type="folder"),
 )
 folder_select_button.pack(side=LEFT, padx=5)
 
@@ -521,6 +523,19 @@ jim_toggle = Checkbutton(
     main_tab, text="Jim mode", variable=jim_mode, command=change_theme
 )
 jim_toggle.pack(side=BOTTOM, pady=5)
+
+
+# -> Argument handling <-
+
+if len(sys.argv) > 1:
+    argument = sys.argv[1]
+
+    file_path_box.configure(state=NORMAL)
+    file_path_box.delete(1.0, END)
+    file_path_box.insert(END, argument)
+
+    # Makes you able to load the files once a selection has been made
+    load_button.configure(state=NORMAL)
 
 
 # -> Window handling <-
