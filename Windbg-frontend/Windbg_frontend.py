@@ -1,5 +1,5 @@
 """ Made by Cpt-Dingus
-Version 1.0 - 26/06/2023 """
+Version 1.0.1 - 26/06/2023 """
 
 import os
 import subprocess
@@ -249,9 +249,9 @@ def load_command():
 
         # Creates the command box
         globals()[f"{prefix}_command"] = Text(
-            tab, height=1, width=60, background=bg_theme, foreground=fg_theme
+            tab, height=1, background=bg_theme, foreground=fg_theme
         )
-        globals()[f"{prefix}_command"].pack(side=BOTTOM, pady=40)
+        globals()[f"{prefix}_command"].pack(side=BOTTOM, fill=BOTH, padx=150, pady=40)
         # Binds entering to executing the command
         globals()[f"{prefix}_command"].bind(
             "<Return>", lambda x, prefix=prefix: run_command(x, prefix=prefix)
@@ -294,7 +294,6 @@ def load_command():
     push_message(main_info, "All cdb threads successfully started!\n")
     load_button.configure(state=DISABLED)
 
-    # TODO: Make this only happen once cdb is finished starting
     run_default_button.configure(state=NORMAL)
 
     def run_command(_, prefix: str):
