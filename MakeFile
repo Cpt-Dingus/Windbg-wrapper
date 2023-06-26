@@ -1,0 +1,4 @@
+.PHONY: build
+
+build:
+	pyinstaller ./Windbg-frontend/Windbg_frontend.py --onefile -w --noconsole
