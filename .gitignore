@@ -365,3 +365,6 @@ FodyWeavers.xsd
 # Pyinstaller build files
 /Windbg-frontend/build
 /Windbg-frontend/dist
+
+/build
+/dist

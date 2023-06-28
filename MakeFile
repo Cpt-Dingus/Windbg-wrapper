@@ -2,3 +2,10 @@
 
 build:
 	pyinstaller ./Windbg-frontend/Windbg_frontend.py --onefile -w --noconsole
+
+lint:
+	pylint ./Windbg-frontend/Windbg_frontend.py
+
+format:
+	black ./Windbg-frontend/Windbg_frontend.py
+	isort ./Windbg-frontend/Windbg_frontend.py

@@ -1,5 +1,5 @@
 """ Made by Cpt-Dingus
-Version 1.0.1 - 26/06/2023 """
+Version 1.1.0 - 28/06/2023 """
 
 import os
 import subprocess
@@ -7,22 +7,13 @@ import sys
 import tempfile
 import threading
 import zipfile
+from datetime import datetime
 from queue import Empty, Queue
-from tkinter import (
-    BOTH,
-    BOTTOM,
-    DISABLED,
-    END,
-    LEFT,
-    NORMAL,
-    TOP,
-    BooleanVar,
-    Text,
-    Tk,
-    X,
-    filedialog,
-)
-from tkinter.ttk import Button, Checkbutton, Frame, Notebook, Style
+from tkinter import (BOTH, BOTTOM, DISABLED, END, LEFT, NORMAL, RIGHT, TOP,
+                     BooleanVar, Text, Tk, X, filedialog)
+from tkinter.ttk import Button, Checkbutton, Frame, Label, Notebook, Style
+
+# Maybe adda jump to analysis button?
 
 
 def push_message(window: Text, message: str):
@@ -109,6 +100,53 @@ def execute_command(process: subprocess.Popen, output: Queue, prefix: str):
                 push_message(output_window, line)
 
 
+def get_file_attributes(
+    path: str,
+    name: str,
+    dump_file: os.stat_result = None,
+    zipped_file: zipfile.ZipInfo = None,
+):
+    """
+    Appends the file attributes to the file dictionary
+
+    Args:
+        - (str) path: The path of the original dump file
+        - (str) name: The name of the dump file
+        - (os.stat_result) dump_file: Dump file info returned from os.stat(), defaults to None
+        - (zipfile.ZipInfo) zipped_filo: Dump file returned from a zip file, defaults to None
+    """
+    # Handling for stadnard .dmp files
+    if dump_file:
+        # YYYY-MM-DD HH:MM:SS
+        date = datetime.utcfromtimestamp(dump_file.st_mtime).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        date_of_creation = f"Dump created at: {date}"
+        # Converts to MB
+        size = f"Size: {round(dump_file.st_size/1000000, 2)} MB"
+
+        # Appends values to the files dict
+        files[name] = {}
+        files[name]["path"] = path
+        files[name]["size"] = size
+        files[name]["doc"] = date_of_creation
+
+    # Handling for dumps returned from a zipfile
+    elif zipped_file:
+        # Covnerts list of integers to a list of strings
+        raw_doc = list(map(str, zipped_file.date_time))
+        # YYYY-MM-DD HH:MM:SS
+        date = f"Dump created at: {'-'.join(raw_doc[:3])} {':'.join(raw_doc[3:])}"
+        # Converts to MB
+        size = f"Size: {round(zipped_file.file_size/1000000, 2)} MB"
+
+        # Appends values to the files dict
+        files[name] = {}
+        files[name]["path"] = path
+        files[name]["size"] = size
+        files[name]["doc"] = date
+
+
 def get_files(file_path: str) -> dict:
     """
     Gets the files from a file path
@@ -141,9 +179,7 @@ def get_files(file_path: str) -> dict:
 
                 # Gets the name of the dump file, replaces - with _ so it can be used as a prefix
                 name = "".join(dump.filename.split("/")[-1]).replace("-", "_")
-
-                # dump: path-to-dump
-                files[name] = dump_path
+                get_file_attributes(dump_path, name, zipped_file=dump)
 
     # Handling for dump files
     elif file_path.endswith(".dmp"):
@@ -151,6 +187,8 @@ def get_files(file_path: str) -> dict:
         if os.stat(file_path).st_size > 1024 * 1024 * 100:
             push_message(main_info, "Dump file exceeds maximum size (100 MB)\n")
             return None
+
+        dump = os.stat(file_path)
 
         # Creates the temp dir
         tmpdir_path = tempfile.mkdtemp()
@@ -162,9 +200,7 @@ def get_files(file_path: str) -> dict:
 
         # Gets the name of the dump file, replaces - with _ so it can be used as a prefix
         name = "".join(file_path.split("/")[-1]).replace("-", "_")
-
-        # dump: path-to-dump
-        files[name] = dump_path
+        get_file_attributes(file_path, name, dump_file=dump)
 
     # Handling for folders
     else:
@@ -185,11 +221,11 @@ def get_files(file_path: str) -> dict:
             ) as dest_file:
                 dest_file.write(src_file.read())
 
-            # Makes sure the dictionary key doesn't contain - (an invalid character)
+            # Gets file info
+            dump = os.stat(f"{file_path}\\{file}")
+            # Replaces - with _ so it can be used as a variable prefix
             name = file.replace("-", "_")
-
-            # dump: path-to-dump
-            files[name] = dump_path
+            get_file_attributes(dump_path, name, dump_file=dump)
 
     if files:
         return files
@@ -241,6 +277,29 @@ def load_command():
             bg_theme = "white"
             fg_theme = "black"
 
+        # -- File info --
+        # Creates the frame to contain the file selection widgets
+        globals()[f"{prefix}_info_frame"] = Frame(tab)
+        globals()[f"{prefix}_info_frame"].pack(side=BOTTOM, pady=5, padx=10, fill=X)
+
+        # Creates the date label
+        globals()[f"{prefix}_date"] = Label(
+            globals()[f"{prefix}_info_frame"],
+            text=files[file]["doc"],
+            background=bg_theme,
+            foreground=fg_theme,
+        )
+        globals()[f"{prefix}_date"].pack(side=LEFT)
+
+        # Creates the size label
+        globals()[f"{prefix}_size"] = Label(
+            globals()[f"{prefix}_info_frame"],
+            text=files[file]["size"],
+            background=bg_theme,
+            foreground=fg_theme,
+        )
+        globals()[f"{prefix}_size"].pack(side=RIGHT)
+
         # Creates the main debugging window
         globals()[f"{prefix}_window"] = Text(
             tab, height=20, width=70, background=bg_theme, foreground=fg_theme
@@ -265,7 +324,7 @@ def load_command():
         prefix = file[:-4]
 
         # Run the command and redirect its input and output
-        command = f'{CDB_PATH} -z "{files[file]}"'
+        command = f'{CDB_PATH} -z "{files[file]["path"]}"'
         process = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
@@ -389,6 +448,8 @@ def change_theme():
         globals()[f"{prefix}_command"].configure(
             background=bg_theme, foreground=fg_theme
         )
+        globals()[f"{prefix}_date"].configure(background=bg_theme, foreground=fg_theme)
+        globals()[f"{prefix}_size"].configure(background=bg_theme, foreground=fg_theme)
 
 
 # -> Main tab definitions <-
